@@ -5,6 +5,7 @@ use MysqlMigrate\TableDelta\Collection\Trigger\InsertTrigger;
 use MysqlMigrate\TableDelta\Collection\Trigger\UpdateTrigger;
 use MysqlMigrate\TableDelta\Replay\ReplayDelete;
 use MysqlMigrate\TableDelta\Replay\ReplayInsert;
+use MysqlMigrate\TableDelta\Replay\ReplayReplace;
 use MysqlMigrate\TableDelta\Replay\ReplayUpdate;
 
 class DeltaReplayTest extends \PHPUnit_Framework_TestCase
@@ -39,6 +40,21 @@ class DeltaReplayTest extends \PHPUnit_Framework_TestCase
         $sql = $replay->getDiffStatement(1234);
 
         $expectedSql = 'INSERT INTO foo(fizz,buzz) SELECT fizz,buzz FROM bar WHERE bar._delta_id = 1234';
+
+        $this->assertEquals($expectedSql, $sql);
+    }
+
+    public function testItCreatesAnReplaceReplay()
+    {
+        $mainTable = $this->getMainTableMock();
+
+        $deltasTable = $this->getDeltasTableMock();
+
+        $replay = new ReplayReplace($mainTable->reveal(), $deltasTable->reveal());
+
+        $sql = $replay->getDiffStatement(1234);
+
+        $expectedSql = 'REPLACE INTO foo(fizz,buzz) SELECT fizz,buzz FROM bar WHERE bar._delta_id = 1234';
 
         $this->assertEquals($expectedSql, $sql);
     }
