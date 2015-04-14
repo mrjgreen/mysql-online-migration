@@ -59,7 +59,7 @@ class DiffReplayer
         $this->validateReplay($stmt, $replaySql);
     }
 
-    protected function replayChanges($transactionBatchSize = null)
+    public function replayChanges($transactionBatchSize = null)
     {
         $query = sprintf('select %s, %s from %s order by %s', DeltasTable::ID_COLUMN_NAME, DeltasTable::TYPE_COLUMN_NAME, $this->deltasTable->getName(), DeltasTable::ID_COLUMN_NAME);
 
