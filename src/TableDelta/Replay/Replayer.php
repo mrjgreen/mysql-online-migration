@@ -1,5 +1,6 @@
 <?php namespace MysqlMigrate\TableDelta\Replay;
 
+use MysqlMigrate\DbConnection;
 use MysqlMigrate\TableDelta\DeltasTable;
 use MysqlMigrate\TableInterface;
 
@@ -11,11 +12,19 @@ class Replayer
 
     private $diffReplayers;
 
-    public function __construct(TableInterface $table, TableInterface $deltasTable)
+    private $dbSource;
+
+    private $dbDestination;
+
+    public function __construct(DbConnection $dbSource, DbConnection $dbDestination, TableInterface $table, TableInterface $deltasTable)
     {
         $this->table = $table;
 
         $this->deltasTable = $deltasTable;
+
+        $this->dbSource = $dbSource;
+
+        $this->dbDestination = $dbDestination;
     }
 
     /**
@@ -33,66 +42,82 @@ class Replayer
         return $this->diffReplayers[$type];
     }
 
-    // check that replay command has affected exactly one row
-    protected function validateReplay(PDOStatement $statement, $replay_sql)
+    /**
+     * Check that replay command has affected exactly one row
+     *
+     * @param \PDOStatement $statement
+     * @param $replay_sql
+     * @param $bind
+     */
+    protected function validateReplay(\PDOStatement $statement, $replay_sql, $bind)
     {
         $count = $statement->rowCount();
 
         if ($count !== 1)
         {
-            throw new RuntimeException("Replay command [$replay_sql] affected $count rows instead of 1 row");
+            $bind = print_r($bind, 1);
+
+            throw new \RuntimeException("Replay command [$replay_sql, $bind] affected $count rows instead of 1 row");
         }
     }
 
-    // Row has ID that can be used to look up into deltas table
-    // to find PK of the row in the newtable to delete
-    protected function replayRow($type, $rowId)
+    /**
+     * @param $type
+     * @param $row
+     */
+    protected function replayRow($type, $row)
     {
-        $replaySql = $this->getDiffReplayer($type)->getDiffStatement($rowId);
+        list($replaySql, $bind) = $this->getDiffReplayer($type)->getDiffStatement($row);
 
-        $stmt = $this->db->query($replaySql);
+        $stmt = $this->dbDestination->query($replaySql, $bind);
 
-        $this->validateReplay($stmt, $replaySql);
+        $this->validateReplay($stmt, $replaySql, $bind);
     }
 
-    protected function replayChanges($transactionBatchSize = null)
+    /**
+     * @param null $transactionBatchSize
+     * @return int
+     */
+    public function replayChanges($transactionBatchSize = null)
     {
-        $query = sprintf('select %s, %s from %s order by %s', DeltasTable::ID_COLUMN_NAME, DeltasTable::TYPE_COLUMN_NAME, $this->deltasTable->getName(), DeltasTable::ID_COLUMN_NAME);
-
-        $result = $this->db->query($query);
+        $lastId = 0;
 
         $i = 0;
-        $inserts = 0;
-        $deletes = 0;
-        $updates = 0;
 
-        if(!is_null($transactionBatchSize))
+        do
         {
-            $this->db->query('BEGIN TRANSACTION');
-        }
+            $results = $this->getDeltaResultSet($lastId, $transactionBatchSize ?: 10000);
 
-        while ($row = $result->fetch()) {
+            $count = $results->rowCount();
 
-            ++$i;
-
-            if (!is_null($transactionBatchSize) && ($i % $transactionBatchSize == 0))
+            if (!is_null($transactionBatchSize))
             {
-                $this->db->query('COMMIT');
+                $this->dbDestination->query('BEGIN TRANSACTION');
             }
 
-            $this->replayRow($row[DeltasTable::TYPE_COLUMN_NAME], $row[DeltasTable::ID_COLUMN_NAME]);
-        }
+            foreach($results as $row)
+            {
+                $i++;
 
-        if (!is_null($transactionBatchSize))
-        {
-            $this->db->query('COMMIT');
-        }
+                $this->replayRow($row[DeltasTable::TYPE_COLUMN_NAME], $row);
 
-        return array(
-            $i,
-            $inserts,
-            $deletes,
-            $updates
-        );
+                $lastId = $row[DeltasTable::ID_COLUMN_NAME];
+            }
+
+            if (!is_null($transactionBatchSize))
+            {
+                $this->dbDestination->query('COMMIT');
+            }
+
+        }while($count > 0);
+
+        return $i;
+    }
+
+    private function getDeltaResultSet($lastId, $batchSize)
+    {
+        $query = sprintf('SELECT * FROM %s WHERE %s > ? ORDER BY %s LIMIT %s', $this->deltasTable->getName(), DeltasTable::ID_COLUMN_NAME, DeltasTable::ID_COLUMN_NAME, $batchSize);
+
+        return $this->dbSource->query($query, array($lastId));
     }
 }

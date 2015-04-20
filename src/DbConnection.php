@@ -20,25 +20,22 @@ class DbConnection
         return $stmt;
     }
 
-    private function listColumn($sql, array $bind = array())
+    public function lockAndFlush(array $tables)
     {
-        $stmt = $this->query($sql, $bind);
+        $tablesLock = implode("WRITE, ", $tables) . " WRITE";
+        $tables = implode(", ", $tables);
 
-        $list = array();
-
-        while($item = $stmt->fetchColumn())
-        {
-            $list[] = $item;
-        }
-
-        return $list;
+        $this->pdo->query("LOCK TABLES $tablesLock");
+        $this->pdo->query("FLUSH TABLES $tables");
     }
 
-    public function lockAndFlush($database, $table)
+    public function selectIntoOutfile($table, \SplFileInfo $file)
     {
-        $db = "$database.$table";
+        return $this->query("SELECT * INTO OUTFILE '$file' FROM $table");
+    }
 
-        $this->pdo->query("LOCK TABLES $db WRITE");
-        $this->pdo->query("FLUSH TABLES $db");
+    public function loadDataInfile($table, \SplFileInfo $file)
+    {
+        return $this->query("LOAD DATA INFILE LOCAL '$file' INTO TABLE $table");
     }
 }

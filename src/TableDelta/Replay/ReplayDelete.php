@@ -1,17 +1,13 @@
 <?php namespace MysqlMigrate\TableDelta\Replay;
 
-use MysqlMigrate\TableDelta\DeltasTable;
-
 class ReplayDelete extends ReplayAbstract
 {
-    public function getDiffStatement($rowId)
+    public function getDiffStatement(array $row)
     {
         $newtable = $this->getTableName();
 
-        $deltas = $this->getDeltaTableName();
+        list($where, $bind) = $this->getReplayWhereClause($row);
 
-        $joinClause = $this->getReplayJoinClause();
-
-        return sprintf('DELETE %s FROM %s, %s WHERE %s.%s = %d AND %s', $newtable, $newtable, $deltas, $deltas, DeltasTable::ID_COLUMN_NAME, $rowId, $joinClause);
+        return array(sprintf("DELETE FROM %s WHERE %s", $newtable, $where), $bind);
     }
 }

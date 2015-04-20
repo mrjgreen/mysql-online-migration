@@ -1,19 +1,19 @@
 <?php namespace MysqlMigrate\TableDelta\Replay;
 
-use MysqlMigrate\TableDelta\DeltasTable;
-
 class ReplayInsert extends ReplayAbstract
 {
     protected $keyword = 'INSERT';
 
-    public function getDiffStatement($rowId)
+    public function getDiffStatement(array $row)
     {
         $newtable = $this->getTableName();
 
-        $deltas = $this->getDeltaTableName();
+        $values = array_intersect_key($row, array_flip($this->getTableColumns()));
 
         $cols = implode(',', $this->getTableColumns());
 
-        return sprintf($this->keyword . ' INTO %s(%s) SELECT %s FROM %s WHERE %s.%s = %d', $newtable, $cols, $cols, $deltas, $deltas, DeltasTable::ID_COLUMN_NAME, $rowId);
+        $qs = str_repeat('?,', count($values));
+
+        return array(sprintf("$this->keyword INTO %s(%s) VALUES(%s)", $newtable, $cols, rtrim($qs, ',')), array_values($values));
     }
 }

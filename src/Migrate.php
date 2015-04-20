@@ -1,5 +1,9 @@
 <?php namespace MysqlMigrate;
 
+use MysqlMigrate\TableDelta\DeltasTable;
+use MysqlMigrate\TableDelta\Replay\Replayer;
+use MysqlMigrate\TableDelta\TriggerCreator;
+
 class Migrate
 {
     private $dbDestination;
@@ -21,24 +25,36 @@ class Migrate
 
         $primaryKey = $this->dbSource->listPrimaryKeyColumns("$database.$table");
 
-        $mainTable = new \MysqlMigrate\Table("$database.$table", $create, $columns, $primaryKey);
+        $mainTable = new Table("$database.$table", $create, $columns, $primaryKey);
 
-        $deltasTable = new \MysqlMigrate\TableDelta\DeltasTable($mainTable);
+        $deltasTable = new DeltasTable($mainTable);
 
-        $diffTracker = new \MysqlMigrate\DiffTracker($this->dbSource);
+        $diffTracker = new TriggerCreator($this->dbSource);
 
         $diffTracker->setUp($mainTable, $deltasTable);
 
         $this->dbDestination->query($mainTable->getCreate());
 
-        $filename = '/filename.csv';
+        $file = new \SplFileInfo('filename.csv');
 
-        $this->dbSource->query("SELECT * INTO OUTFILE '$filename' FROM " . $mainTable->getName());
+        $countOut = $this->dbSource->selectIntoOutfile($mainTable->getName(), $file)->rowCount();
 
-        $this->dbDestination->query("LOAD DATA INFILE LOCAL '$filename' INTO TABLE " . $mainTable->getName());
+        $countIn = $this->dbDestination->loadDataInfile($mainTable->getName(), $file)->rowCount();
 
-        $diffReplayer = new DiffReplayer($mainTable, $deltasTable);
+        if($countOut !== $countIn)
+        {
+            throw new \RuntimeException("Output row count [$countOut] is not equal to input count [$countIn]");
+        }
+
+        $this->dbSource->lockAndFlush(array(
+            $mainTable->getName(),
+            $deltasTable->getName(),
+        ));
+
+        $diffReplayer = new Replayer($this->dbSource, $this->dbDestination, $mainTable, $deltasTable);
 
         $diffReplayer->replayChanges();
+
+        $this->dbSource->query("DROP TABLE " . $deltasTable->getName());
     }
 }

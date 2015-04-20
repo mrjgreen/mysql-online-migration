@@ -2,5 +2,5 @@
 
 interface ReplayInterface
 {
-    public function getDiffStatement($rowId);
+    public function getDiffStatement(array $rowId);
 }

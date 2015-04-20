@@ -15,26 +15,21 @@ abstract class ReplayAbstract implements ReplayInterface
         $this->deltasTable = $deltasTable;
     }
 
-    protected function buildConditionArray($tableA, $tableB, array $columns)
-    {
-        $conditions = array();
-
-        foreach ($columns as $column) {
-            $conditions[] = "$tableA.$column = $tableB.$column";
-        }
-
-        return $conditions;
-    }
-
-    protected function getReplayJoinClause()
+    protected function getReplayWhereClause(array $values)
     {
         $cols = $this->table->getPrimaryKey();
 
         $newtable = $this->getTableName();
 
-        $deltas = $this->getDeltaTableName();
+        $conditions = array();
+        $bind = array();
 
-        return implode(' AND ', $this->buildConditionArray($newtable, $deltas, $cols));
+        foreach ($cols as $column) {
+            $conditions[] = "$newtable.$column = ?";
+            $bind[] = $values[$column];
+        }
+
+        return array(implode(' AND ', $conditions), $bind);
     }
 
     protected function getNonPrimaryKeyCols()

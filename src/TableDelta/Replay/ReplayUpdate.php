@@ -1,21 +1,29 @@
 <?php namespace MysqlMigrate\TableDelta\Replay;
 
-use MysqlMigrate\TableDelta\DeltasTable;
-
 class ReplayUpdate extends ReplayAbstract
 {
-    public function getDiffStatement($rowId)
+    public function getDiffStatement(array $row)
     {
         $newtable = $this->getTableName();
 
-        $deltas = $this->getDeltaTableName();
+        list($where, $whereBind) = $this->getReplayWhereClause($row);
 
         $nonPrimaryKeyCols = $this->getNonPrimaryKeyCols();
 
-        $assignment = implode(', ', $this->buildConditionArray($newtable, $deltas, $nonPrimaryKeyCols));
+        $bind = array();
+        $set = array();
 
-        $joinClause = $this->getReplayJoinClause();
+        foreach($nonPrimaryKeyCols as $col)
+        {
+            $set[] = "$col = ?";
+            $bind[] = $row[$col];
+        }
 
-        return sprintf('UPDATE %s, %s SET %s WHERE %s.%s = %d AND %s', $newtable, $deltas, $assignment, $deltas, DeltasTable::ID_COLUMN_NAME, $rowId, $joinClause);
+        foreach($whereBind as $b)
+        {
+            $bind[] = $b;
+        }
+
+        return array(sprintf("UPDATE %s SET %s WHERE %s", $newtable, implode(', ', $set), $where), $bind);
     }
 }

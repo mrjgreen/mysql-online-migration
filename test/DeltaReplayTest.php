@@ -15,7 +15,7 @@ class DeltaReplayTest extends \PHPUnit_Framework_TestCase
         $mainTable = $this->prophesize('MysqlMigrate\TableInterface');
 
         $mainTable->getName()->willReturn('foo');
-        $mainTable->getColumns()->willReturn(array('fizz', 'buzz'));
+        $mainTable->getColumns()->willReturn(array('fizz', 'buzz', 'baz'));
 
         return $mainTable;
     }
@@ -37,11 +37,14 @@ class DeltaReplayTest extends \PHPUnit_Framework_TestCase
 
         $replay = new ReplayInsert($mainTable->reveal(), $deltasTable->reveal());
 
-        $sql = $replay->getDiffStatement(1234);
+        list($sql, $bind) = $replay->getDiffStatement(array('fizz' => '123', 'buzz' => 'foobar', 'baz' => 'boo'));
 
-        $expectedSql = 'INSERT INTO foo(fizz,buzz) SELECT fizz,buzz FROM bar WHERE bar._delta_id = 1234';
+        $expectedSql = 'INSERT INTO foo(fizz,buzz,baz) VALUES(?,?,?)';
+
+        $expectedBind = array(123, 'foobar', 'boo');
 
         $this->assertEquals($expectedSql, $sql);
+        $this->assertEquals($expectedBind, $bind);
     }
 
     public function testItCreatesAnReplaceReplay()
@@ -52,11 +55,14 @@ class DeltaReplayTest extends \PHPUnit_Framework_TestCase
 
         $replay = new ReplayReplace($mainTable->reveal(), $deltasTable->reveal());
 
-        $sql = $replay->getDiffStatement(1234);
+        list($sql, $bind) = $replay->getDiffStatement(array('fizz' => '123', 'buzz' => 'foobar', 'baz' => 'boo'));
 
-        $expectedSql = 'REPLACE INTO foo(fizz,buzz) SELECT fizz,buzz FROM bar WHERE bar._delta_id = 1234';
+        $expectedSql = 'REPLACE INTO foo(fizz,buzz,baz) VALUES(?,?,?)';
+
+        $expectedBind = array(123, 'foobar', 'boo');
 
         $this->assertEquals($expectedSql, $sql);
+        $this->assertEquals($expectedBind, $bind);
     }
 
     public function testItCreatesADeleteReplay()
@@ -69,11 +75,17 @@ class DeltaReplayTest extends \PHPUnit_Framework_TestCase
 
         $replay = new ReplayDelete($mainTable->reveal(), $deltasTable->reveal());
 
-        $sql = $replay->getDiffStatement(1234);
+        list($sql, $bind) = $replay->getDiffStatement(array('fizz' => '123', 'buzz' => 'foobar', 'baz' => 'boo'));
 
-        $expectedSql = 'DELETE foo FROM foo, bar WHERE bar._delta_id = 1234 AND foo.fizz = bar.fizz';
+        $expectedSql = 'DELETE FROM foo WHERE foo.fizz = ?';
+
+        $expectedBind = array(
+            123
+        );
 
         $this->assertEquals($expectedSql, $sql);
+
+        $this->assertEquals($expectedBind, $bind);
     }
 
     public function testItCreatesAnUpdateReplay()
@@ -86,10 +98,18 @@ class DeltaReplayTest extends \PHPUnit_Framework_TestCase
 
         $replay = new ReplayUpdate($mainTable->reveal(), $deltasTable->reveal());
 
-        $sql = $replay->getDiffStatement(1234);
+        list($sql, $bind) = $replay->getDiffStatement(array('fizz' => '123', 'buzz' => 'foobar', 'baz' => 'boo'));
 
-        $expectedSql = 'UPDATE foo, bar SET foo.buzz = bar.buzz WHERE bar._delta_id = 1234 AND foo.fizz = bar.fizz';
+        $expectedSql = 'UPDATE foo SET buzz = ?, baz = ? WHERE foo.fizz = ?';
+
+        $expectedBind = array(
+            'foobar',
+            'boo',
+            123
+        );
 
         $this->assertEquals($expectedSql, $sql);
+
+        $this->assertEquals($expectedBind, $bind);
     }
 }
