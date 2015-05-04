@@ -3,4 +3,6 @@
 interface TriggerInterface
 {
     public function getCreateStatement();
+
+    public function getName();
 }

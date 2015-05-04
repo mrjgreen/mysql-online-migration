@@ -19,6 +19,11 @@ abstract class TriggerAbstract implements TriggerInterface
         $this->name = $name;
     }
 
+    public function getName()
+    {
+        return $this->name;
+    }
+
     protected function getColumnsString($prefix = null)
     {
         return implode(', ', array_map(function($column) use($prefix){

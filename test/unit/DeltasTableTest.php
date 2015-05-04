@@ -11,11 +11,11 @@ class DeltasTableTest extends \PHPUnit_Framework_TestCase
     {
         $mainTable = $this->prophesize('MysqlMigrate\TableInterface');
 
-        $mainTable->getName()->willReturn('foo');
+        $mainTable->getTable()->willReturn(new DatabaseTable('foo', 'bar'));
 
         $deltasTable = new DeltasTable($mainTable->reveal());
 
-        $this->assertEquals('_delta_foo', $deltasTable->getName());
+        $this->assertEquals('foo._delta_bar', $deltasTable->getName());
     }
 
     public function testItReturnsCorrectColumnsFromParentTable()
@@ -42,15 +42,16 @@ class DeltasTableTest extends \PHPUnit_Framework_TestCase
     {
         $mainTable = $this->prophesize('MysqlMigrate\TableInterface');
 
-        $mainTable->getName()->willReturn('foo');
+        $mainTable->getTable()->willReturn(new DatabaseTable('foo', 'bar'));
+        $mainTable->getName()->willReturn('foo.bar');
         $mainTable->getColumns()->willReturn(array('fizz', 'buzz'));
 
         $deltasTable = new DeltasTable($mainTable->reveal());
 
         $create =
-            'CREATE TABLE IF NOT EXISTS _delta_foo ' .
+            'CREATE TABLE IF NOT EXISTS foo._delta_bar ' .
             '(_delta_id INT UNSIGNED AUTO_INCREMENT, _delta_statement_type TINYINT, PRIMARY KEY(_delta_id)) '.
-            'ENGINE=InnoDB AS (SELECT fizz, buzz FROM foo LIMIT 0)';
+            'ENGINE=InnoDB AS (SELECT fizz, buzz FROM foo.bar LIMIT 0)';
 
         $this->assertEquals($create, $deltasTable->getCreate());
     }

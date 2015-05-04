@@ -2,7 +2,7 @@
 
 class Table implements TableInterface
 {
-    private $name;
+    private $table;
 
     private $create;
 
@@ -10,9 +10,9 @@ class Table implements TableInterface
 
     private $primaryKey;
 
-    public function __construct($name, $create, array $columns, array $primaryKey)
+    public function __construct(DatabaseTable $table, $create, array $columns, array $primaryKey)
     {
-        $this->name = $name;
+        $this->table = $table;
 
         $this->create = $create;
 
@@ -23,7 +23,12 @@ class Table implements TableInterface
 
     public function getName()
     {
-        return $this->name;
+        return $this->table->getFQName();
+    }
+
+    public function getTable()
+    {
+        return $this->table;
     }
 
     public function getCreate()

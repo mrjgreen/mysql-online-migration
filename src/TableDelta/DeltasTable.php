@@ -1,5 +1,6 @@
 <?php namespace MysqlMigrate\TableDelta;
 
+use MysqlMigrate\DatabaseTable;
 use MysqlMigrate\TableInterface;
 
 class DeltasTable implements TableInterface
@@ -31,7 +32,14 @@ class DeltasTable implements TableInterface
 
     public function getName()
     {
-        return '_delta_' . $this->mainTable->getName();
+        return $this->getTable()->getFQName();
+    }
+
+    public function getTable()
+    {
+        $table = $this->mainTable->getTable();
+
+        return new DatabaseTable($table->getDatabase(), '_delta_' . $table->getName());
     }
 
     public function getCreate()
