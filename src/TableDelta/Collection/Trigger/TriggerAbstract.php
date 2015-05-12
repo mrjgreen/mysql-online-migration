@@ -24,11 +24,11 @@ abstract class TriggerAbstract implements TriggerInterface
         return $this->name;
     }
 
-    protected function getColumnsString($prefix = null)
+    protected function getPrimaryKeyString($prefix = null)
     {
         return implode(', ', array_map(function($column) use($prefix){
             return $prefix ? "$prefix.$column" : $column;
-        }, $this->table->getColumns()));
+        }, $this->table->getPrimaryKey()));
     }
 
     protected function getPrimaryKey()

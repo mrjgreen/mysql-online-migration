@@ -22,20 +22,22 @@ class DeltasTableTest extends \PHPUnit_Framework_TestCase
     {
         $mainTable = $this->prophesize('MysqlMigrate\TableInterface');
 
-        $mainTable->getColumns()->willReturn(array('fizz', 'buzz'));
+        $mainTable->getPrimaryKey()->willReturn(array('fizz', 'buzz'));
 
         $deltasTable = new DeltasTable($mainTable->reveal());
 
-        $this->assertEquals(array(DeltasTable::ID_COLUMN_NAME, DeltasTable::TYPE_COLUMN_NAME, 'fizz', 'buzz'), $deltasTable->getColumns());
+        $this->assertEquals(array(DeltasTable::TYPE_COLUMN_NAME, 'fizz', 'buzz'), $deltasTable->getColumns());
     }
 
     public function testItReturnsCorrectPrimaryKey()
     {
         $mainTable = $this->prophesize('MysqlMigrate\TableInterface');
 
+        $mainTable->getPrimaryKey()->willReturn(array('fizz', 'buzz'));
+
         $deltasTable = new DeltasTable($mainTable->reveal());
 
-        $this->assertEquals(array(DeltasTable::ID_COLUMN_NAME), $deltasTable->getPrimaryKey());
+        $this->assertEquals(array(DeltasTable::TYPE_COLUMN_NAME, 'fizz', 'buzz'), $deltasTable->getPrimaryKey());
     }
 
     public function testItReturnsCorrectCreateStatement()
@@ -44,13 +46,13 @@ class DeltasTableTest extends \PHPUnit_Framework_TestCase
 
         $mainTable->getTable()->willReturn(new DatabaseTable('foo', 'bar'));
         $mainTable->getName()->willReturn('foo.bar');
-        $mainTable->getColumns()->willReturn(array('fizz', 'buzz'));
+        $mainTable->getPrimaryKey()->willReturn(array('fizz', 'buzz'));
 
         $deltasTable = new DeltasTable($mainTable->reveal());
 
         $create =
             'CREATE TABLE IF NOT EXISTS foo._delta_bar ' .
-            '(_delta_id INT UNSIGNED AUTO_INCREMENT, _delta_statement_type TINYINT, PRIMARY KEY(_delta_id)) '.
+            '(_delta_statement_type TINYINT, PRIMARY KEY(_delta_statement_type, fizz, buzz)) '.
             'ENGINE=InnoDB AS (SELECT fizz, buzz FROM foo.bar LIMIT 0)';
 
         $this->assertEquals($create, $deltasTable->getCreate());

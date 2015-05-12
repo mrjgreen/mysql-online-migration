@@ -11,11 +11,7 @@ class DeltasTable implements TableInterface
 
     const TYPE_UPDATE = 3;
 
-    const TYPE_REPLACE = 4;
-
     const TYPE_COLUMN_NAME = '_delta_statement_type';
-
-    const ID_COLUMN_NAME = '_delta_id';
 
     const DEFAULT_ENGINE = 'InnoDB';
 
@@ -44,25 +40,24 @@ class DeltasTable implements TableInterface
 
     public function getCreate()
     {
-        $create = 'CREATE TABLE IF NOT EXISTS %s (%s INT UNSIGNED AUTO_INCREMENT, %s TINYINT, PRIMARY KEY(%s)) ENGINE=%s AS (SELECT %s FROM %s LIMIT 0)';
+        $create = 'CREATE TABLE IF NOT EXISTS %s (%s TINYINT, PRIMARY KEY(%s)) ENGINE=%s AS (SELECT %s FROM %s LIMIT 0)';
 
         return sprintf($create,
             $this->getName(),
-            self::ID_COLUMN_NAME,
             self::TYPE_COLUMN_NAME,
-            self::ID_COLUMN_NAME,
+            implode(', ', $this->getPrimaryKey()),
             $this->engine,
-            implode(', ', $this->mainTable->getColumns()),
+            implode(', ', $this->mainTable->getPrimaryKey()),
             $this->mainTable->getName());
     }
 
     public function getColumns()
     {
-        return array_merge(array(self::ID_COLUMN_NAME, self::TYPE_COLUMN_NAME), $this->mainTable->getColumns());
+        return array_merge(array(self::TYPE_COLUMN_NAME), $this->mainTable->getPrimaryKey());
     }
 
     public function getPrimaryKey()
     {
-        return array(self::ID_COLUMN_NAME);
+        return $this->getColumns();
     }
 }

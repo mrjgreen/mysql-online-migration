@@ -33,6 +33,8 @@ class Migrate
 
         $this->transferData($file, $sourceTable, $destinationTableInst);
 
+        unlink($file);
+
         $afterTransfer and $afterTransfer();
 
         $this->dbSource->lockAndFlush(array(
@@ -40,9 +42,10 @@ class Migrate
             $deltasTable->getName(),
         ));
 
-        $diffReplayer = new Replayer($this->dbSource, $this->dbDestination, $destinationTableInst, $deltasTable);
+        $diffReplayer = new Replayer($this->dbSource, $this->dbDestination, $sourceTable, $destinationTableInst, $deltasTable);
 
-        $diffReplayer->replayChanges();
+        $diffReplayer->replayDeletes();
+        $diffReplayer->replayInsertsAndUpdates($file);
 
         foreach($triggers as $trigger)
         {

@@ -34,14 +34,16 @@ class DbConnection
         $this->exec("FLUSH TABLES $tables");
     }
 
-    public function selectIntoOutfile($table, \SplFileInfo $file)
+    public function selectIntoOutfile($table, \SplFileInfo $file, $columns = array('*'))
     {
-        return $this->query("SELECT * INTO OUTFILE '$file' FROM $table");
+        $columns = implode(',', $columns);
+
+        return $this->query("SELECT $columns INTO OUTFILE '$file' FROM $table");
     }
 
-    public function loadDataInfile($table, \SplFileInfo $file)
+    public function loadDataInfile($table, \SplFileInfo $file, $type = '')
     {
-        return $this->exec("LOAD DATA LOCAL INFILE '$file' INTO TABLE $table CHARACTER SET binary");
+        return $this->exec("LOAD DATA LOCAL INFILE '$file' $type INTO TABLE $table CHARACTER SET binary");
     }
 
     public function showCreate($table)

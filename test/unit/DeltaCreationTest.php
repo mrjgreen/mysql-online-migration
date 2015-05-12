@@ -10,14 +10,13 @@ class DeltaCreationTest extends \PHPUnit_Framework_TestCase
     private $deltaTypeInsert = 1; //DeltasTable::TYPE_INSERT;
     private $deltaTypeDelete = 2; //DeltasTable::TYPE_DELETE;
     private $deltaTypeUpdate = 3; //DeltasTable::TYPE_UPDATE;
-    private $deltaTypeReplace = 4; //DeltasTable::TYPE_UPDATE;
 
     private function getMainTableMock()
     {
         $mainTable = $this->prophesize('MysqlMigrate\TableInterface');
 
         $mainTable->getName()->willReturn('foo');
-        $mainTable->getColumns()->willReturn(array('fizz', 'buzz'));
+        $mainTable->getPrimaryKey()->willReturn(array('fizz'));
 
         return $mainTable;
     }
@@ -41,7 +40,7 @@ class DeltaCreationTest extends \PHPUnit_Framework_TestCase
 
         $sql = $insertTrigger->getCreateStatement();
 
-        $expectedSql = "CREATE TRIGGER biz AFTER INSERT ON foo FOR EACH ROW INSERT INTO bar($this->deltaTypeCol, fizz, buzz) VALUES ($this->deltaTypeInsert, NEW.fizz, NEW.buzz)";
+        $expectedSql = "CREATE TRIGGER biz AFTER INSERT ON foo FOR EACH ROW REPLACE INTO bar($this->deltaTypeCol, fizz) VALUES ($this->deltaTypeInsert, NEW.fizz)";
 
         $this->assertEquals($expectedSql, $sql);
     }
@@ -56,7 +55,7 @@ class DeltaCreationTest extends \PHPUnit_Framework_TestCase
 
         $sql = $insertTrigger->getCreateStatement();
 
-        $expectedSql = "CREATE TRIGGER biz AFTER DELETE ON foo FOR EACH ROW INSERT INTO bar($this->deltaTypeCol, fizz, buzz) VALUES ($this->deltaTypeDelete, OLD.fizz, OLD.buzz)";
+        $expectedSql = "CREATE TRIGGER biz AFTER DELETE ON foo FOR EACH ROW REPLACE INTO bar($this->deltaTypeCol, fizz) VALUES ($this->deltaTypeDelete, OLD.fizz)";
 
         $this->assertEquals($expectedSql, $sql);
     }
@@ -65,18 +64,13 @@ class DeltaCreationTest extends \PHPUnit_Framework_TestCase
     {
         $mainTable = $this->getMainTableMock();
 
-        $mainTable->getPrimaryKey()->willReturn(array('fizz'));
-
         $deltaTable = $this->getDeltasTableMock();
 
         $insertTrigger = new UpdateTrigger($mainTable->reveal(), $deltaTable->reveal(), 'biz');
 
         $sql = $insertTrigger->getCreateStatement();
 
-        $expectedSql =
-            "CREATE TRIGGER biz AFTER UPDATE ON foo FOR EACH ROW " .
-            "IF (OLD.fizz = NEW.fizz) THEN INSERT INTO bar($this->deltaTypeCol, fizz, buzz) VALUES($this->deltaTypeUpdate, NEW.fizz, NEW.buzz); " .
-            "ELSE INSERT INTO bar($this->deltaTypeCol, fizz, buzz) VALUES($this->deltaTypeReplace, NEW.fizz, NEW.buzz); END IF";
+        $expectedSql = "CREATE TRIGGER biz AFTER UPDATE ON foo FOR EACH ROW REPLACE INTO bar($this->deltaTypeCol, fizz) VALUES ($this->deltaTypeUpdate, OLD.fizz)";
 
         $this->assertEquals($expectedSql, $sql);
     }

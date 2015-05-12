@@ -6,15 +6,15 @@ class InsertTrigger extends TriggerAbstract
 {
     public function getCreateStatement()
     {
-        $trigger = 'CREATE TRIGGER %s AFTER INSERT ON %s FOR EACH ROW INSERT INTO %s(%s, %s) VALUES (%d, %s)';
+        $trigger = 'CREATE TRIGGER %s AFTER INSERT ON %s FOR EACH ROW REPLACE INTO %s(%s, %s) VALUES (%d, %s)';
 
         return sprintf($trigger,
             $this->getTriggerName(),
             $this->getTableName(),
             $this->getDeltaTableName(),
             DeltasTable::TYPE_COLUMN_NAME,
-            $this->getColumnsString(),
+            $this->getPrimaryKeyString(),
             DeltasTable::TYPE_INSERT,
-            $this->getColumnsString('NEW'));
+            $this->getPrimaryKeyString('NEW'));
     }
 }

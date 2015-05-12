@@ -6,118 +6,94 @@ use MysqlMigrate\TableInterface;
 
 class Replayer
 {
-    private $table;
+    private $sourceTable;
+
+    private $destTable;
 
     private $deltasTable;
 
-    private $diffReplayers;
+    private $deleteReplayer;
 
     private $dbSource;
 
     private $dbDestination;
 
-    public function __construct(DbConnection $dbSource, DbConnection $dbDestination, TableInterface $table, TableInterface $deltasTable)
+    public function __construct(DbConnection $dbSource, DbConnection $dbDestination, TableInterface $sourceTable, TableInterface $destTable, TableInterface $deltasTable)
     {
-        $this->table = $table;
+        $this->destTable = $destTable;
+
+        $this->sourceTable = $sourceTable;
 
         $this->deltasTable = $deltasTable;
 
         $this->dbSource = $dbSource;
 
         $this->dbDestination = $dbDestination;
+
+        $this->deleteReplayer = new ReplayDelete($this->destTable, $this->deltasTable);
     }
 
     /**
-     * @return ReplayInterface
-     */
-    private function getDiffReplayer($type)
-    {
-        $this->diffReplayers or $this->diffReplayers = array(
-            DeltasTable::TYPE_INSERT => new ReplayInsert($this->table, $this->deltasTable),
-            DeltasTable::TYPE_DELETE => new ReplayDelete($this->table, $this->deltasTable),
-            DeltasTable::TYPE_UPDATE => new ReplayUpdate($this->table, $this->deltasTable),
-            DeltasTable::TYPE_REPLACE => new ReplayReplace($this->table, $this->deltasTable),
-        );
-
-        return $this->diffReplayers[$type];
-    }
-
-    /**
-     * Check that replay command has affected exactly one row
-     *
-     * @param \PDOStatement $statement
-     * @param $replay_sql
-     * @param $bind
-     */
-    protected function validateReplay(\PDOStatement $statement, $replay_sql, $bind)
-    {
-        $count = $statement->rowCount();
-
-        if ($count !== 1)
-        {
-            $bind = print_r($bind, 1);
-
-            throw new \RuntimeException("Replay command [$replay_sql, $bind] affected $count rows instead of 1 row");
-        }
-    }
-
-    /**
-     * @param $type
      * @param $row
      */
-    protected function replayRow($type, $row)
+    protected function deleteRow($row)
     {
-        list($replaySql, $bind) = $this->getDiffReplayer($type)->getDiffStatement($row);
+        list($replaySql, $bind) = $this->deleteReplayer->getDiffStatement($row);
 
-        $stmt = $this->dbDestination->query($replaySql, $bind);
+        $this->dbDestination->query($replaySql, $bind);
+    }
 
-        $this->validateReplay($stmt, $replaySql, $bind);
+
+    public function replayInsertsAndUpdates(\SplFileInfo $file)
+    {
+        $primaryKey = implode(',', $this->sourceTable->getPrimaryKey());
+
+        $deltas = $this->deltasTable->getName();
+        $main = $this->sourceTable->getName();
+
+        $this->dbSource->selectIntoOutfile("$main JOIN $deltas USING($primaryKey)", $file, array($main . '.*'));
+
+        $this->dbDestination->loadDataInfile($this->destTable->getName(), $file, 'REPLACE');
     }
 
     /**
      * @param null $transactionBatchSize
-     * @return int
      */
-    public function replayChanges($transactionBatchSize = null)
+    public function replayDeletes($transactionBatchSize = null)
     {
-        $lastId = 0;
-
         $i = 0;
 
-        do
+        $results = $this->getDeletes();
+
+        if (!is_null($transactionBatchSize))
         {
-            $results = $this->getDeltaResultSet($lastId, $transactionBatchSize ?: 10000);
+            $this->dbDestination->query('BEGIN TRANSACTION');
+        }
 
-            $count = $results->rowCount();
+        foreach($results as $row)
+        {
 
-            if (!is_null($transactionBatchSize))
-            {
-                $this->dbDestination->query('BEGIN TRANSACTION');
-            }
+            $this->deleteRow($row);
 
-            foreach($results as $row)
-            {
-                $i++;
-
-                $this->replayRow($row[DeltasTable::TYPE_COLUMN_NAME], $row);
-
-                $lastId = $row[DeltasTable::ID_COLUMN_NAME];
-            }
-
-            if (!is_null($transactionBatchSize))
+            if (!is_null($transactionBatchSize) && ++$i == $transactionBatchSize)
             {
                 $this->dbDestination->query('COMMIT');
+                $this->dbDestination->query('BEGIN TRANSACTION');
+
+                $i = 0;
             }
+        }
 
-        }while($count > 0);
-
-        return $i;
+        if (!is_null($transactionBatchSize))
+        {
+            $this->dbDestination->query('COMMIT');
+        }
     }
 
-    private function getDeltaResultSet($lastId, $batchSize)
+    private function getDeletes()
     {
-        $query = sprintf('SELECT * FROM %s WHERE %s > ? ORDER BY %s LIMIT %s', $this->deltasTable->getName(), DeltasTable::ID_COLUMN_NAME, DeltasTable::ID_COLUMN_NAME, $batchSize);
+        $query = sprintf('SELECT * FROM %s WHERE %s = ?', $this->deltasTable->getName(), DeltasTable::TYPE_COLUMN_NAME);
 
-        return $this->dbSource->query($query, array($lastId));
+        return $this->dbSource->query($query, array(DeltasTable::TYPE_DELETE));
     }
 }

@@ -15,7 +15,6 @@ class DeltaReplayTest extends \PHPUnit_Framework_TestCase
         $mainTable = $this->prophesize('MysqlMigrate\TableInterface');
 
         $mainTable->getName()->willReturn('foo');
-        $mainTable->getColumns()->willReturn(array('fizz', 'buzz', 'baz'));
 
         return $mainTable;
     }
@@ -27,42 +26,6 @@ class DeltaReplayTest extends \PHPUnit_Framework_TestCase
         $deltaTable->getName()->willReturn('bar');
 
         return $deltaTable;
-    }
-
-    public function testItCreatesAnInsertReplay()
-    {
-        $mainTable = $this->getMainTableMock();
-
-        $deltasTable = $this->getDeltasTableMock();
-
-        $replay = new ReplayInsert($mainTable->reveal(), $deltasTable->reveal());
-
-        list($sql, $bind) = $replay->getDiffStatement(array('fizz' => '123', 'buzz' => 'foobar', 'baz' => 'boo'));
-
-        $expectedSql = 'INSERT INTO foo(fizz,buzz,baz) VALUES(?,?,?)';
-
-        $expectedBind = array(123, 'foobar', 'boo');
-
-        $this->assertEquals($expectedSql, $sql);
-        $this->assertEquals($expectedBind, $bind);
-    }
-
-    public function testItCreatesAnReplaceReplay()
-    {
-        $mainTable = $this->getMainTableMock();
-
-        $deltasTable = $this->getDeltasTableMock();
-
-        $replay = new ReplayReplace($mainTable->reveal(), $deltasTable->reveal());
-
-        list($sql, $bind) = $replay->getDiffStatement(array('fizz' => '123', 'buzz' => 'foobar', 'baz' => 'boo'));
-
-        $expectedSql = 'REPLACE INTO foo(fizz,buzz,baz) VALUES(?,?,?)';
-
-        $expectedBind = array(123, 'foobar', 'boo');
-
-        $this->assertEquals($expectedSql, $sql);
-        $this->assertEquals($expectedBind, $bind);
     }
 
     public function testItCreatesADeleteReplay()
@@ -80,31 +43,6 @@ class DeltaReplayTest extends \PHPUnit_Framework_TestCase
         $expectedSql = 'DELETE FROM foo WHERE foo.fizz = ?';
 
         $expectedBind = array(
-            123
-        );
-
-        $this->assertEquals($expectedSql, $sql);
-
-        $this->assertEquals($expectedBind, $bind);
-    }
-
-    public function testItCreatesAnUpdateReplay()
-    {
-        $mainTable = $this->getMainTableMock();
-
-        $mainTable->getPrimaryKey()->willReturn(array('fizz'));
-
-        $deltasTable = $this->getDeltasTableMock();
-
-        $replay = new ReplayUpdate($mainTable->reveal(), $deltasTable->reveal());
-
-        list($sql, $bind) = $replay->getDiffStatement(array('fizz' => '123', 'buzz' => 'foobar', 'baz' => 'boo'));
-
-        $expectedSql = 'UPDATE foo SET buzz = ?, baz = ? WHERE foo.fizz = ?';
-
-        $expectedBind = array(
-            'foobar',
-            'boo',
             123
         );
 
