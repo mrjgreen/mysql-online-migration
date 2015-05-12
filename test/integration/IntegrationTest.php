@@ -51,8 +51,9 @@ values (11103,'Atelier graphique','Schmitt','Carine ','40.32.2555','54, rue Roya
         };
 
         $migrate->migrate(
-            $sourceTable,
-            $destTable,
+            array(
+                [$sourceTable, $destTable]
+            ),
             $afterTransfer);
 
         $this->assertEquals(
