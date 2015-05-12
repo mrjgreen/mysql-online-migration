@@ -11,11 +11,9 @@ class DeltasTableTest extends \PHPUnit_Framework_TestCase
     {
         $mainTable = $this->prophesize('MysqlMigrate\TableInterface');
 
-        $mainTable->getTable()->willReturn(new DatabaseTable('foo', 'bar'));
+        $deltasTable = new DeltasTable($mainTable->reveal(), new TableName('foo', '_delta_bar'));
 
-        $deltasTable = new DeltasTable($mainTable->reveal());
-
-        $this->assertEquals('foo._delta_bar', $deltasTable->getName());
+        $this->assertEquals('`foo`.`_delta_bar`', $deltasTable->getName());
     }
 
     public function testItReturnsCorrectColumnsFromParentTable()
@@ -24,7 +22,7 @@ class DeltasTableTest extends \PHPUnit_Framework_TestCase
 
         $mainTable->getPrimaryKey()->willReturn(array('fizz', 'buzz'));
 
-        $deltasTable = new DeltasTable($mainTable->reveal());
+        $deltasTable = new DeltasTable($mainTable->reveal(), new TableName('fizz', 'buzz'));
 
         $this->assertEquals(array(DeltasTable::TYPE_COLUMN_NAME, 'fizz', 'buzz'), $deltasTable->getColumns());
     }
@@ -35,7 +33,7 @@ class DeltasTableTest extends \PHPUnit_Framework_TestCase
 
         $mainTable->getPrimaryKey()->willReturn(array('fizz', 'buzz'));
 
-        $deltasTable = new DeltasTable($mainTable->reveal());
+        $deltasTable = new DeltasTable($mainTable->reveal(), new TableName('fizz', 'buzz'));
 
         $this->assertEquals(array(DeltasTable::TYPE_COLUMN_NAME, 'fizz', 'buzz'), $deltasTable->getPrimaryKey());
     }
@@ -44,14 +42,14 @@ class DeltasTableTest extends \PHPUnit_Framework_TestCase
     {
         $mainTable = $this->prophesize('MysqlMigrate\TableInterface');
 
-        $mainTable->getTable()->willReturn(new DatabaseTable('foo', 'bar'));
         $mainTable->getName()->willReturn('foo.bar');
+
         $mainTable->getPrimaryKey()->willReturn(array('fizz', 'buzz'));
 
-        $deltasTable = new DeltasTable($mainTable->reveal());
+        $deltasTable = new DeltasTable($mainTable->reveal(), new TableName('foo', '_delta_bar'));
 
         $create =
-            'CREATE TABLE IF NOT EXISTS foo._delta_bar ' .
+            'CREATE TABLE IF NOT EXISTS `foo`.`_delta_bar` ' .
             '(_delta_statement_type TINYINT, PRIMARY KEY(_delta_statement_type, fizz, buzz)) '.
             'ENGINE=InnoDB AS (SELECT fizz, buzz FROM foo.bar LIMIT 0)';
 

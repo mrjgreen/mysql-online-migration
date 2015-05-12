@@ -4,45 +4,43 @@ class Table implements TableInterface
 {
     private $table;
 
-    private $create;
+    private $connection;
 
-    private $columns;
-
-    private $primaryKey;
-
-    public function __construct(DatabaseTable $table, $create, array $columns, array $primaryKey)
+    public function __construct(DbConnection $connection, TableName $table)
     {
+        $this->connection = $connection;
+
         $this->table = $table;
-
-        $this->create = $create;
-
-        $this->columns = $columns;
-
-        $this->primaryKey = $primaryKey;
     }
 
     public function getName()
     {
-        return $this->table->getFQName();
+        return $this->table->getQualifiedName();
     }
 
-    public function getTable()
+    public function create($createStatement)
     {
-        return $this->table;
+        $this->connection->createTable($this->table->getQualifiedName(), $createStatement);
     }
 
     public function getCreate()
     {
-        return $this->create;
+        $create = $this->connection->showCreate($this->getName());
+
+        $replace = "CREATE TABLE `" . $this->table->name . "`";
+
+        $count = 1;
+
+        return str_replace($replace, '', $create, $count);
     }
 
     public function getColumns()
     {
-        return $this->columns;
+        return $this->connection->listColumns($this->getName());
     }
 
     public function getPrimaryKey()
     {
-        return $this->primaryKey;
+        return $this->connection->listPrimaryKeyColumns($this->getName());
     }
 }

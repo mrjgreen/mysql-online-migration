@@ -8,11 +8,6 @@ interface TableInterface
     public function getName();
 
     /**
-     * @return DatabaseTable
-     */
-    public function getTable();
-
-    /**
      * @return string
      */
     public function getCreate();

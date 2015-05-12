@@ -5,7 +5,8 @@
     }
   },
   "require": {
-    "symfony/process": "~2.6"
+    "symfony/process": "~2.6",
+    "kriswallsmith/spork": "0.2.*"
   },
   "require-dev": {
     "phpunit/phpunit": "~4.6"

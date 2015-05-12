@@ -51,6 +51,11 @@ class DbConnection
         return $this->query("SHOW CREATE TABLE $table")->fetchAll()[0]['Create Table'];
     }
 
+    public function createTable($name, $createStatement)
+    {
+        return $this->exec("CREATE TABLE IF NOT EXISTS $name $createStatement");
+    }
+
     private function getColumnInfo($table)
     {
         $rows = $this->query("SHOW COLUMNS FROM $table")->fetchAll();
@@ -91,6 +96,15 @@ class DbConnection
     {
         $this->exec("DROP TRIGGER $trigger");
     }
+
+//    public function quoteIdentifier($identifier)
+//    {
+//        $parts = explode('.', $identifier);
+//
+//        return implode('.', array_map(function($part){
+//            return '`' . $part . '`';
+//        }, $parts));
+//    }
 
     public static function makePdoConnection($dsn, $username, $password)
     {

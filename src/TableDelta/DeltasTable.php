@@ -1,7 +1,7 @@
 <?php namespace MysqlMigrate\TableDelta;
 
-use MysqlMigrate\DatabaseTable;
 use MysqlMigrate\TableInterface;
+use MysqlMigrate\TableName;
 
 class DeltasTable implements TableInterface
 {
@@ -19,23 +19,20 @@ class DeltasTable implements TableInterface
 
     private $engine;
 
-    public function __construct(TableInterface $mainTable, $engine = self::DEFAULT_ENGINE)
+    private $name;
+
+    public function __construct(TableInterface $mainTable, TableName $name, $engine = self::DEFAULT_ENGINE)
     {
         $this->mainTable = $mainTable;
+
+        $this->name = $name;
 
         $this->engine = $engine;
     }
 
     public function getName()
     {
-        return $this->getTable()->getFQName();
-    }
-
-    public function getTable()
-    {
-        $table = $this->mainTable->getTable();
-
-        return new DatabaseTable($table->getDatabase(), '_delta_' . $table->getName());
+        return $this->name->getQualifiedName();
     }
 
     public function getCreate()
