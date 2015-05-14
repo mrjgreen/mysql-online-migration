@@ -11,13 +11,11 @@ class DbConnection
 
     public function exec($sql)
     {
-        echo "$sql \n";
         return $this->pdo->exec($sql);
     }
 
     public function query($sql, array $bind = array())
     {
-        echo "$sql \n";
         $stmt = $this->pdo->prepare($sql);
 
         $stmt->execute($bind);
