@@ -15,7 +15,7 @@ class Table implements TableInterface
 
     public function getName()
     {
-        return $this->table->getQualifiedName();
+        return $this->table;
     }
 
     public function create($createStatement)

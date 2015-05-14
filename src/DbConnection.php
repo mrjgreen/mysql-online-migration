@@ -25,13 +25,21 @@ class DbConnection
         return $stmt;
     }
 
-    public function lockAndFlush(array $tables)
+    public function count($table)
     {
-        $tablesLock = implode(" WRITE, ", $tables) . " WRITE";
-        $tables = implode(", ", $tables);
+        return $this->query("SELECT COUNT(*) FROM $table")->fetchColumn();
+    }
+
+    public function unlock()
+    {
+        $this->exec("UNLOCK TABLES");
+    }
+
+    public function lock(array $tables)
+    {
+        $tablesLock = implode(" READ, ", $tables) . " READ";
 
         $this->exec("LOCK TABLES $tablesLock");
-        $this->exec("FLUSH TABLES $tables");
     }
 
     public function selectIntoOutfile($table, \SplFileInfo $file, $columns = array('*'))
@@ -96,15 +104,6 @@ class DbConnection
     {
         $this->exec("DROP TRIGGER $trigger");
     }
-
-//    public function quoteIdentifier($identifier)
-//    {
-//        $parts = explode('.', $identifier);
-//
-//        return implode('.', array_map(function($part){
-//            return '`' . $part . '`';
-//        }, $parts));
-//    }
 
     public static function makePdoConnection($dsn, $username, $password)
     {

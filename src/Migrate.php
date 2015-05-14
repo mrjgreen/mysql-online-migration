@@ -5,8 +5,28 @@ use MysqlMigrate\TableDelta\Collection\Trigger\InsertTrigger;
 use MysqlMigrate\TableDelta\Collection\Trigger\UpdateTrigger;
 use MysqlMigrate\TableDelta\DeltasTable;
 use MysqlMigrate\TableDelta\Replay\Replayer;
-use Spork\Batch\Strategy\ChunkStrategy;
-use Spork\ProcessManager;
+
+class TransferSet
+{
+    public $sourceTable;
+
+    public $destinationTable;
+
+    public $deltasTable;
+
+    public $triggers;
+
+    public function __construct(Table $sourceTable, Table $destinationTable, DeltasTable $deltasTable, array $triggers)
+    {
+        $this->sourceTable = $sourceTable;
+
+        $this->destinationTable = $destinationTable;
+
+        $this->deltasTable = $deltasTable;
+
+        $this->triggers = $triggers;
+    }
+}
 
 class Migrate
 {
@@ -16,6 +36,11 @@ class Migrate
 
     private $tempFileProvider;
 
+    /**
+     * @param DbConnection $dbSource
+     * @param DbConnection $dbDestination
+     * @param TempFileProvider $tempFileProvider
+     */
     public function __construct(DbConnection $dbSource, DbConnection $dbDestination, TempFileProvider $tempFileProvider)
     {
         $this->dbSource = $dbSource;
@@ -25,27 +50,114 @@ class Migrate
         $this->tempFileProvider = $tempFileProvider;
     }
 
-    private function setUpMigration(TableName $sourceTableName, TableName $destinationTableName)
+    /**
+     * @param array $tables
+     * @param callable $afterTransfer
+     */
+    public function migrate(array $tables, \Closure $afterTransfer = null)
     {
-        $sourceTable = new Table($this->dbSource, $sourceTableName);
+        $transferSets = array();
 
-        $destinationTable = new Table($this->dbDestination, $destinationTableName);
+        foreach($tables as $table)
+        {
+            list($sourceTableName, $destinationTableName) = $table;
 
-        $destinationTable->create($sourceTable->getCreate());
+            $sourceTable = new Table($this->dbSource, $sourceTableName);
 
-        $deltasTable = new DeltasTable($sourceTable, new TableName($sourceTableName->schema, '_deltas_table_' . $sourceTableName->name));
+            $destinationTable = new Table($this->dbDestination, $destinationTableName);
 
-        return array($deltasTable, $this->setUpTriggers($sourceTable, $deltasTable, $sourceTableName));
+            $destinationTable->create($sourceTable->getCreate());
+
+            $deltasTable = new DeltasTable($sourceTable, new TableName($sourceTableName->schema, '_deltas_table_' . $sourceTableName->name));
+
+            $triggers = $this->getTriggers($sourceTable, $deltasTable, $sourceTableName);
+
+            $transferSets[] = new TransferSet($sourceTable, $destinationTable, $deltasTable, $triggers);
+        }
+
+        $file = $this->tempFileProvider->getTempFile('testfile');
+
+        foreach($transferSets as $transferSet)
+        {
+            is_file($file) && unlink($file);
+
+            $this->setUpTriggers($transferSet->deltasTable, $transferSet->triggers);
+
+            $this->transferData($file, $transferSet->sourceTable, $transferSet->destinationTable);
+        }
+
+        $afterTransfer and $afterTransfer();
+
+        $this->lockTables($transferSets);
+
+        foreach($transferSets as $transferSet)
+        {
+            is_file($file) && unlink($file);
+
+            $this->replayDeltas($file, $transferSet->sourceTable, $transferSet->destinationTable, $transferSet->deltasTable);
+        }
+
+        is_file($file) && unlink($file);
+
+        foreach($transferSets as $transferSet)
+        {
+            $this->verifyTables($transferSet->sourceTable, $transferSet->destinationTable);
+        }
+
+        //$afterVerify and $afterVerify();
+
+        $this->unlockTables();
+
+        foreach($transferSets as $transferSet)
+        {
+            $this->cleanupTriggers($transferSet->triggers, $transferSet->deltasTable);
+        }
     }
 
-    private function tearDownMigration($triggers, $file, TableName $sourceTableName, TableName $destinationTableName, $deltasTable)
+    private function verifyTables($sourceTable, $destinationTable)
     {
-        $sourceTable = new Table($this->dbSource, $sourceTableName);
+        $source = $sourceTable->getName();
+        $destination = $destinationTable->getName();
 
-        $destinationTable = new Table($this->dbDestination, $destinationTableName);
+        $countSource = $this->dbSource->count($source);
 
-        $this->replayDeltas($file, $destinationTable, $sourceTable, $deltasTable);
+        $countDestination = $this->dbDestination->count($destination);
 
+        if($countSource !== $countDestination)
+        {
+            throw new \Exception("Count from source $source '$countSource' does not match destination $destination '$countDestination'");
+        }
+    }
+
+    /**
+     */
+    private function unlockTables()
+    {
+        $this->dbSource->unlock();
+    }
+
+    /**
+     * @param array $transferSets
+     */
+    private function lockTables(array $transferSets)
+    {
+        $tables = array();
+
+        foreach($transferSets as $set)
+        {
+            $tables[] = $set->deltasTable->getName();
+            $tables[] = $set->sourceTable->getName();
+        }
+
+        $this->dbSource->lock($tables);
+    }
+
+    /**
+     * @param array $triggers
+     * @param DeltasTable $deltasTable
+     */
+    private function cleanupTriggers(array $triggers, DeltasTable $deltasTable)
+    {
         foreach($triggers as $trigger)
         {
             $this->dbSource->dropTrigger($trigger->getName());
@@ -54,64 +166,13 @@ class Migrate
         $this->dbSource->drop($deltasTable->getName());
     }
 
-    public function migrate(array $tables, \Closure $afterTransfer = null)
-    {
-        $triggers = array();
-        $deltasTables = array();
-        $tablesToLock = array();
-
-        foreach($tables as $table)
-        {
-            $sourceTableName = $table[0];
-
-            $destinationTableName = $table[1];
-
-            list($deltasTables[$table[0]->getQualifiedName()], $triggers[$table[0]->getQualifiedName()]) = $this->setUpMigration($sourceTableName, $destinationTableName);
-
-            $tablesToLock[] = $table[0]->getQualifiedName();
-            $tablesToLock[] = $deltasTables[$table[0]->getQualifiedName()];
-        }
-
-        $this->fork(function($table){
-
-            $sourceTableName = $table[0];
-
-            $destinationTableName = $table[1];
-
-            $sourceTable = new Table($this->dbSource, $sourceTableName);
-
-            $destinationTable = new Table($this->dbDestination, $destinationTableName);
-
-            $file = $this->tempFileProvider->getTempFile($sourceTableName->schema . '_' . $sourceTableName->name);
-
-            if(is_file($file))
-            {
-                unlink($file);
-            }
-
-            $this->transferData($file, $sourceTable, $destinationTable);
-
-            unlink($file);
-        }, $tables);
-
-
-        $afterTransfer and $afterTransfer();
-
-        $this->dbSource->lockAndFlush($tablesToLock);
-
-        foreach($tables as $table)
-        {
-            $sourceTableName = $table[0];
-
-            $destinationTableName = $table[1];
-
-            $this->tearDownMigration($triggers[$sourceTableName->getQualifiedName()], $file, $sourceTableName, $destinationTableName, $deltasTables[$sourceTableName->getQualifiedName()]);
-
-            unlink($file);
-        }
-    }
-
-    private function replayDeltas($file, $destinationTable, $sourceTable, $deltasTable)
+    /**
+     * @param $file
+     * @param $sourceTable
+     * @param $destinationTable
+     * @param $deltasTable
+     */
+    private function replayDeltas($file, $sourceTable, $destinationTable, $deltasTable)
     {
         $diffReplayer = new Replayer($this->dbSource, $this->dbDestination, $sourceTable, $destinationTable, $deltasTable);
 
@@ -120,16 +181,13 @@ class Migrate
     }
 
     /**
-     * @param TableInterface $mainTable
      * @param TableInterface $deltasTable
-     * @param TableName $sourceTable
+     * @param array $triggers
      * @return array
      */
-    private function setUpTriggers(TableInterface $mainTable, TableInterface $deltasTable, TableName $sourceTable)
+    private function setUpTriggers(TableInterface $deltasTable, array $triggers)
     {
         $this->dbSource->exec($deltasTable->getCreate());
-
-        $triggers = $this->getTriggers($mainTable, $deltasTable, $sourceTable);
 
         foreach($triggers as $trigger)
         {
@@ -142,23 +200,27 @@ class Migrate
     }
 
     /**
-     * @param TableInterface $mainTable
+     * @param TableInterface $sourceTable
      * @param TableInterface $deltasTable
-     * @param TableName $sourceTable
      * @return array
      */
-    private function getTriggers(TableInterface $mainTable, TableInterface $deltasTable, TableName $sourceTable)
+    private function getTriggers(TableInterface $sourceTable, TableInterface $deltasTable)
     {
-        $schema = $sourceTable->schema;
-        $suffix = $sourceTable->name;
+        $schema = $sourceTable->getName()->schema;
+        $suffix = $sourceTable->getName()->name;
 
         return array(
-            new DeleteTrigger($mainTable, $deltasTable, new TableName($schema, "_deltas_trigger_delete_{$suffix}")),
-            new InsertTrigger($mainTable, $deltasTable, new TableName($schema, "_deltas_trigger_insert_{$suffix}")),
-            new UpdateTrigger($mainTable, $deltasTable, new TableName($schema, "_deltas_trigger_update_{$suffix}")),
+            new DeleteTrigger($sourceTable, $deltasTable, new TableName($schema, "_deltas_trigger_delete_{$suffix}")),
+            new InsertTrigger($sourceTable, $deltasTable, new TableName($schema, "_deltas_trigger_insert_{$suffix}")),
+            new UpdateTrigger($sourceTable, $deltasTable, new TableName($schema, "_deltas_trigger_update_{$suffix}")),
         );
     }
 
+    /**
+     * @param \SplFileInfo $file
+     * @param Table $source
+     * @param Table $destination
+     */
     private function transferData(\SplFileInfo $file, Table $source, Table $destination)
     {
         $countOut = $this->dbSource->selectIntoOutfile($source->getName(), $file)->rowCount();
@@ -169,12 +231,5 @@ class Migrate
         {
             throw new \RuntimeException("Output row count [$countOut] is not equal to input count [$countIn]");
         }
-    }
-
-    private function fork($callback, array $tables)
-    {
-        $manager = new ProcessManager();
-
-        $manager->process($tables, $callback, new ChunkStrategy(count($tables)));
     }
 }
