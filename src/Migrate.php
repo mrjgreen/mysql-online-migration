@@ -5,6 +5,8 @@ use MysqlMigrate\TableDelta\Collection\Trigger\InsertTrigger;
 use MysqlMigrate\TableDelta\Collection\Trigger\UpdateTrigger;
 use MysqlMigrate\TableDelta\DeltasTable;
 use MysqlMigrate\TableDelta\Replay\Replayer;
+use Psr\Log\LoggerAwareTrait;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 class TransferSet
 {
@@ -30,6 +32,8 @@ class TransferSet
 
 class Migrate
 {
+    use LoggerAwareTrait;
+
     private $dbDestination;
 
     private $dbSource;
@@ -37,24 +41,31 @@ class Migrate
     private $tempFileProvider;
 
     /**
+     * @var EventDispatcher
+     */
+    private $eventDispatcher;
+
+    /**
      * @param DbConnection $dbSource
      * @param DbConnection $dbDestination
      * @param TempFileProvider $tempFileProvider
+     * @param EventDispatcher $eventDispatcher
      */
-    public function __construct(DbConnection $dbSource, DbConnection $dbDestination, TempFileProvider $tempFileProvider)
+    public function __construct(DbConnection $dbSource, DbConnection $dbDestination, TempFileProvider $tempFileProvider, EventDispatcher $eventDispatcher = null)
     {
         $this->dbSource = $dbSource;
 
         $this->dbDestination = $dbDestination;
 
         $this->tempFileProvider = $tempFileProvider;
+
+        $this->eventDispatcher = $eventDispatcher;
     }
 
     /**
      * @param array $tables
-     * @param callable $afterTransfer
      */
-    public function migrate(array $tables, \Closure $afterTransfer = null)
+    public function migrate(array $tables)
     {
         $transferSets = array();
 
@@ -86,7 +97,7 @@ class Migrate
             $this->transferData($file, $transferSet->sourceTable, $transferSet->destinationTable);
         }
 
-        $afterTransfer and $afterTransfer();
+        $this->dispatch('migrate.transfer.initial');
 
         $this->lockTables($transferSets);
 
@@ -99,12 +110,14 @@ class Migrate
 
         is_file($file) && unlink($file);
 
+        $this->dispatch('migrate.transfer.delta');
+
         foreach($transferSets as $transferSet)
         {
             $this->verifyTables($transferSet->sourceTable, $transferSet->destinationTable);
         }
 
-        //$afterVerify and $afterVerify();
+        $this->dispatch('migrate.before-unlock');
 
         $this->unlockTables();
 
@@ -112,8 +125,26 @@ class Migrate
         {
             $this->cleanupTriggers($transferSet->triggers, $transferSet->deltasTable);
         }
+
+        $this->dispatch('migrate.complete');
     }
 
+    /**
+     * @param $eventName
+     */
+    private function dispatch($eventName)
+    {
+        if($this->eventDispatcher)
+        {
+            $this->eventDispatcher->dispatch($eventName);
+        }
+    }
+
+    /**
+     * @param $sourceTable
+     * @param $destinationTable
+     * @throws \Exception
+     */
     private function verifyTables($sourceTable, $destinationTable)
     {
         $source = $sourceTable->getName();
@@ -130,6 +161,7 @@ class Migrate
     }
 
     /**
+     *
      */
     private function unlockTables()
     {

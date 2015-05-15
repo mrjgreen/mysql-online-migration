@@ -3,6 +3,7 @@
 use MysqlMigrate\TableDelta\Collection\Trigger\DeleteTrigger;
 use MysqlMigrate\TableDelta\Collection\Trigger\InsertTrigger;
 use MysqlMigrate\TableDelta\Collection\Trigger\UpdateTrigger;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 class IntegrationTest extends \PHPUnit_Framework_TestCase
 {
@@ -19,14 +20,16 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase
 
     public function testItMigratesATable()
     {
+        $eventDispatcher = new EventDispatcher();
+
         $connSource = new DbConnection($this->sourceDb);
         $connDest = new DbConnection($this->destDb);
-        $migrate = new Migrate($connSource, $connDest, new TempFileProvider(__DIR__));
+        $migrate = new Migrate($connSource, $connDest, new TempFileProvider(__DIR__), $eventDispatcher);
 
         $sourceTable = new TableName('mysql_migrate_int_test', 'customers');
         $destTable = new TableName('mysql_migrate_int_test', 'customers_new');
 
-        $afterTransfer = function() use($connSource, $sourceTable)
+        $eventDispatcher->addListener('migrate.transfer.initial', function() use($connSource, $sourceTable)
         {
             $table = $sourceTable->getQualifiedName();
 
@@ -48,13 +51,9 @@ values (11161,'Technics Stores Inc.','Hashimoto','Juri','1234567','9408 Other Pl
 
             $connSource->query("insert  into $table (`customerNumber`,`customerName`,`contactLastName`,`contactFirstName`,`phone`,`addressLine1`,`addressLine2`,`city`,`state`,`postalCode`,`country`,`salesRepEmployeeNumber`,`creditLimit`)
 values (11103,'Atelier graphique','Schmitt','Carine ','40.32.2555','54, rue Royale',NULL,'Nantes',NULL,'44000','France',1370,21000)");
-        };
+        });
 
-        $migrate->migrate(
-            array(
-                [$sourceTable, $destTable]
-            ),
-            $afterTransfer);
+        $migrate->migrate(array([$sourceTable, $destTable]));
 
         $this->assertEquals(
             $connSource->query("SELECT * FROM " . $sourceTable->getQualifiedName())->fetchAll(),
