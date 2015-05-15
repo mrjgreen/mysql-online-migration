@@ -1,4 +1,5 @@
 {
+  "name" : "mrjgreen/mysql-online-migration":,
   "autoload" : {
     "psr-4" : {
       "MysqlMigrate\\" : "src"
