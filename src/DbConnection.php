@@ -59,7 +59,7 @@ class DbConnection
 
     public function createTable($name, $createStatement)
     {
-        return $this->exec("CREATE TABLE IF NOT EXISTS $name $createStatement");
+        return $this->exec("CREATE TABLE $name $createStatement");
     }
 
     private function getColumnInfo($table)
@@ -95,12 +95,17 @@ class DbConnection
 
     public function drop($table)
     {
-        $this->exec("DROP TABLE $table");
+        $this->exec("DROP TABLE IF EXISTS $table");
     }
 
     public function dropTrigger($trigger)
     {
-        $this->exec("DROP TRIGGER $trigger");
+        $this->exec("DROP TRIGGER IF EXISTS $trigger");
+    }
+
+    public static function make($dsn, $username, $password)
+    {
+        return new static(static::makePdoConnection($dsn, $username, $password));
     }
 
     public static function makePdoConnection($dsn, $username, $password)

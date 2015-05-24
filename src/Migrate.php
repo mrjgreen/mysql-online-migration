@@ -48,24 +48,39 @@ class Migrate
     /**
      * @param DbConnection $dbSource
      * @param DbConnection $dbDestination
-     * @param TempFileProvider $tempFileProvider
      * @param EventDispatcher $eventDispatcher
      */
-    public function __construct(DbConnection $dbSource, DbConnection $dbDestination, TempFileProvider $tempFileProvider, EventDispatcher $eventDispatcher = null)
+    public function __construct(DbConnection $dbSource, DbConnection $dbDestination, EventDispatcher $eventDispatcher = null)
     {
         $this->dbSource = $dbSource;
 
         $this->dbDestination = $dbDestination;
 
-        $this->tempFileProvider = $tempFileProvider;
-
         $this->eventDispatcher = $eventDispatcher;
+    }
+
+    public function cleanup(array $tables)
+    {
+        foreach($tables as $table)
+        {
+            list($sourceTableName) = $table;
+
+            $sourceTable = new Table($this->dbSource, $sourceTableName);
+
+            $deltasTable = new DeltasTable($sourceTable, new TableName($sourceTableName->schema, '_deltas_table_' . $sourceTableName->name));
+
+            $triggers = $this->getTriggers($sourceTable, $deltasTable, $sourceTableName);
+
+            $this->cleanupTriggers($triggers, $deltasTable);
+        }
     }
 
     /**
      * @param array $tables
+     * @param \SplFileInfo $tmpFile
+     * @throws \Exception
      */
-    public function migrate(array $tables)
+    public function migrate(array $tables, \SplFileInfo $tmpFile)
     {
         $transferSets = array();
 
@@ -86,15 +101,13 @@ class Migrate
             $transferSets[] = new TransferSet($sourceTable, $destinationTable, $deltasTable, $triggers);
         }
 
-        $file = $this->tempFileProvider->getTempFile('testfile');
-
         foreach($transferSets as $transferSet)
         {
-            is_file($file) && unlink($file);
+            is_file($tmpFile) && unlink($tmpFile);
 
             $this->setUpTriggers($transferSet->deltasTable, $transferSet->triggers);
 
-            $this->transferData($file, $transferSet->sourceTable, $transferSet->destinationTable);
+            $this->transferData($tmpFile, $transferSet->sourceTable, $transferSet->destinationTable);
         }
 
         $this->dispatch('migrate.transfer.initial');
@@ -103,12 +116,12 @@ class Migrate
 
         foreach($transferSets as $transferSet)
         {
-            is_file($file) && unlink($file);
+            is_file($tmpFile) && unlink($tmpFile);
 
-            $this->replayDeltas($file, $transferSet->sourceTable, $transferSet->destinationTable, $transferSet->deltasTable);
+            $this->replayDeltas($tmpFile, $transferSet->sourceTable, $transferSet->destinationTable, $transferSet->deltasTable);
         }
 
-        is_file($file) && unlink($file);
+        is_file($tmpFile) && unlink($tmpFile);
 
         $this->dispatch('migrate.transfer.delta');
 
@@ -120,6 +133,8 @@ class Migrate
         $this->dispatch('migrate.before-unlock');
 
         $this->unlockTables();
+
+        die();
 
         foreach($transferSets as $transferSet)
         {

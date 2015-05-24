@@ -1,0 +1,23 @@
+#!/usr/bin/env php
+<?php namespace MysqlMigrate\Command;
+
+$packageAutoloaders = array(
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../../autoload.php',
+    __DIR__ . '/../../autoload.php',
+);
+foreach($packageAutoloaders as $autoloader)
+{
+    if(is_file($autoloader))
+    {
+        include $autoloader;
+    }
+}
+
+use Symfony\Component\Console\Application;
+use Symfony\Component\Debug\ErrorHandler;
+ErrorHandler::register();
+
+$application = new Application('migrate');
+$application->add(new MigrateCommand());
+$application->run();
