@@ -295,7 +295,7 @@ class Migrate
         }
     }
 
-    private function log($message, $level = LogLevel::INFO)
+    private function log($message, $level = LogLevel::NOTICE)
     {
         $this->logger and $this->logger->log($level, $message);
     }
