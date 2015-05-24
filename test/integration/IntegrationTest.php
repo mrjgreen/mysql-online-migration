@@ -22,9 +22,13 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase
     {
         $eventDispatcher = new EventDispatcher();
 
+        $file = new \SplFileInfo(__DIR__ . '/testfile.dat');
+
+        @unlink($file);
+
         $connSource = new DbConnection($this->sourceDb);
         $connDest = new DbConnection($this->destDb);
-        $migrate = new Migrate($connSource, $connDest, new TempFileProvider(__DIR__), $eventDispatcher);
+        $migrate = new Migrate($connSource, $connDest, $eventDispatcher);
 
         $sourceTable = new TableName('mysql_migrate_int_test', 'customers');
         $destTable = new TableName('mysql_migrate_int_test', 'customers_new');
@@ -53,7 +57,7 @@ values (11161,'Technics Stores Inc.','Hashimoto','Juri','1234567','9408 Other Pl
 values (11103,'Atelier graphique','Schmitt','Carine ','40.32.2555','54, rue Royale',NULL,'Nantes',NULL,'44000','France',1370,21000)");
         });
 
-        $migrate->migrate(array([$sourceTable, $destTable]));
+        $migrate->migrate(array([$sourceTable, $destTable]), $file);
 
         $this->assertEquals(
             $connSource->query("SELECT * FROM " . $sourceTable->getQualifiedName())->fetchAll(),

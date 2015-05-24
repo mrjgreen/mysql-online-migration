@@ -6,6 +6,7 @@ use MysqlMigrate\TableDelta\Collection\Trigger\UpdateTrigger;
 use MysqlMigrate\TableDelta\DeltasTable;
 use MysqlMigrate\TableDelta\Replay\Replayer;
 use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LogLevel;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 class TransferSet
@@ -37,8 +38,6 @@ class Migrate
     private $dbDestination;
 
     private $dbSource;
-
-    private $tempFileProvider;
 
     /**
      * @var EventDispatcher
@@ -134,8 +133,6 @@ class Migrate
 
         $this->unlockTables();
 
-        die();
-
         foreach($transferSets as $transferSet)
         {
             $this->cleanupTriggers($transferSet->triggers, $transferSet->deltasTable);
@@ -173,6 +170,8 @@ class Migrate
         {
             throw new \Exception("Count from source $source '$countSource' does not match destination $destination '$countDestination'");
         }
+
+        $this->log("Verified source row count $source ($countSource) against destination $destination ($countDestination)");
     }
 
     /**
@@ -207,10 +206,18 @@ class Migrate
     {
         foreach($triggers as $trigger)
         {
-            $this->dbSource->dropTrigger($trigger->getName());
+            $t = $trigger->getName();
+
+            $this->log("Dropping trigger $t");
+
+            $this->dbSource->dropTrigger($t);
         }
 
-        $this->dbSource->drop($deltasTable->getName());
+        $d = $deltasTable->getName();
+
+        $this->log("Dropping deltas table $d");
+
+        $this->dbSource->drop($d);
     }
 
     /**
@@ -223,7 +230,11 @@ class Migrate
     {
         $diffReplayer = new Replayer($this->dbSource, $this->dbDestination, $sourceTable, $destinationTable, $deltasTable);
 
+        $this->log("Replaying deletes against $destinationTable");
+
         $diffReplayer->replayDeletes();
+
+        $this->log("Replaying inserts against $destinationTable");
         $diffReplayer->replayInsertsAndUpdates($file);
     }
 
@@ -234,10 +245,14 @@ class Migrate
      */
     private function setUpTriggers(TableInterface $deltasTable, array $triggers)
     {
+        $this->log("Creating deltas table " . $deltasTable->getName());
+
         $this->dbSource->exec($deltasTable->getCreate());
 
         foreach($triggers as $trigger)
         {
+            $this->log("Creating trigger " . $trigger->getName());
+
             $sql = $trigger->getCreateStatement();
 
             $this->dbSource->exec($sql);
@@ -278,5 +293,10 @@ class Migrate
         {
             throw new \RuntimeException("Output row count [$countOut] is not equal to input count [$countIn]");
         }
+    }
+
+    private function log($message, $level = LogLevel::INFO)
+    {
+        $this->logger and $this->logger->log($level, $message);
     }
 }

@@ -43,4 +43,9 @@ class Table implements TableInterface
     {
         return $this->connection->listPrimaryKeyColumns($this->getName());
     }
+
+    public function __toString()
+    {
+        return $this->getName()->getQualifiedName();
+    }
 }
