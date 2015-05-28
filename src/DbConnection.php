@@ -33,9 +33,11 @@ class DbConnection
         $this->exec("UNLOCK TABLES");
     }
 
-    public function lock(array $tables)
+    public function lock(array $tables, $write = false)
     {
-        $tablesLock = implode(" READ, ", $tables) . " READ";
+        $type = $write ? 'WRITE' : 'READ';
+
+        $tablesLock = implode(" $type, ", $tables) . " $type";
 
         $this->exec("LOCK TABLES $tablesLock");
     }

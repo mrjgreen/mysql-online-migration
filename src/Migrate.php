@@ -111,6 +111,8 @@ class Migrate
 
         $this->dispatch('migrate.transfer.initial');
 
+        $this->log("Acquiring read lock on tables");
+
         $this->lockTables($transferSets);
 
         foreach($transferSets as $transferSet)
@@ -128,6 +130,10 @@ class Migrate
         {
             $this->verifyTables($transferSet->sourceTable, $transferSet->destinationTable);
         }
+
+        $this->log("Acquiring write lock on tables");
+
+        $this->lockTables($transferSets, true);
 
         $this->dispatch('migrate.before-unlock');
 
@@ -184,8 +190,9 @@ class Migrate
 
     /**
      * @param array $transferSets
+     * @param bool $write
      */
-    private function lockTables(array $transferSets)
+    private function lockTables(array $transferSets, $write = false)
     {
         $tables = array();
 
@@ -195,7 +202,7 @@ class Migrate
             $tables[] = $set->sourceTable->getName();
         }
 
-        $this->dbSource->lock($tables);
+        $this->dbSource->lock($tables, $write);
     }
 
     /**
