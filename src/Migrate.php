@@ -287,7 +287,11 @@ class Migrate
     {
         $countOut = $this->dbSource->selectIntoOutfile($source->getName(), $file)->rowCount();
 
+        $this->log("Output row count [$countOut]");
+
         $countIn = $this->dbDestination->loadDataInfile($destination->getName(), $file);
+
+        $this->log("Input row count [$countIn]");
 
         if($countOut !== $countIn)
         {
