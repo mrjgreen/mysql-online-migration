@@ -1,4 +1,4 @@
-<?php namespace MysqlMigrate\Command;
+<?php namespace MysqlMigrate\Helper;
 
 class PdoOptionsParser
 {
