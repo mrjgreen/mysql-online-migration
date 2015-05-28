@@ -291,7 +291,7 @@ class Migrate
 
         if($countOut !== $countIn)
         {
-            throw new \RuntimeException("Output row count [$countOut] is not equal to input count [$countIn]");
+            $this->log("Output row count [$countOut] is not equal to input count [$countIn]", LogLevel::WARNING);
         }
     }
 
