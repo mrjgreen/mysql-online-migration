@@ -5,6 +5,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Logger\ConsoleLogger;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 class MigrateCommandHelper
 {
@@ -34,6 +35,16 @@ class MigrateCommandHelper
      */
     private $logger;
 
+    /**
+     * @var bool
+     */
+    private $isInteractive = true;
+
+    /**
+     * @var
+     */
+    private $eventDispatcher;
+
     public function __construct(DbConnection $sourceConnection, DbConnection $destConnection, OutputInterface $output, Questioner $questioner)
     {
         $this->output = $output;
@@ -50,7 +61,17 @@ class MigrateCommandHelper
         $this->logger = $logger;
     }
 
-    public function execute(\SplFileInfo $file, array $tablesList, $cleanup, $isInteractive)
+    public function setEventDispatcher(EventDispatcher $eventDispatcher)
+    {
+        $this->eventDispatcher = $eventDispatcher;
+    }
+
+    public function disableInteraction()
+    {
+        $this->isInteractive = false;
+    }
+
+    public function execute(\SplFileInfo $file, array $tablesList, $cleanup = false)
     {
         if($file->isFile() && !$cleanup)
         {
@@ -61,13 +82,13 @@ class MigrateCommandHelper
 
         $this->output->writeln("<comment>Using file: $file</comment>");
 
-        $migrate = new Migrate($this->sourceConnection, $this->destConnection);
+        $migrate = new Migrate($this->sourceConnection, $this->destConnection, $this->eventDispatcher ?: new EventDispatcher());
 
         $migrate->setLogger($this->logger ?: new ConsoleLogger($this->output));
 
         $this->printTablesList($tablesList);
 
-        if($isInteractive)
+        if($this->isInteractive)
         {
             if(!$this->questioner->confirm("Are you sure you wish to continue with the migration? "))
             {

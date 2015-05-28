@@ -59,7 +59,9 @@ class MigrateCommand extends Command
 
         $migrateCommandHelper = new MigrateCommandHelper($source, $dest, $output, $questioner);
 
-        return $migrateCommandHelper->execute($file, $this->getTableList($source), $this->input->getOption('cleanup'), $this->input->isInteractive());
+        if($this->input->isInteractive()) $migrateCommandHelper->disableInteraction();
+
+        return $migrateCommandHelper->execute($file, $this->getTableList($source), $this->input->getOption('cleanup'));
     }
 
     /**
