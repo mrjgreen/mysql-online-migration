@@ -62,6 +62,11 @@ class DbConnection
         return $this->exec("CREATE TABLE $name $createStatement");
     }
 
+    public function createTableIfNotExists($name, $createStatement)
+    {
+        return $this->exec("CREATE TABLE IF NOT EXISTS $name $createStatement");
+    }
+
     private function getColumnInfo($table)
     {
         $rows = $this->query("SHOW COLUMNS FROM $table")->fetchAll();

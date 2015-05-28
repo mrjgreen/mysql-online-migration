@@ -79,7 +79,7 @@ class Migrate
      * @param \SplFileInfo $tmpFile
      * @throws \Exception
      */
-    public function migrate(array $tables, \SplFileInfo $tmpFile)
+    public function migrate(array $tables, \SplFileInfo $tmpFile, $overwriteExistingTables = false)
     {
         $transferSets = array();
 
@@ -91,7 +91,7 @@ class Migrate
 
             $destinationTable = new Table($this->dbDestination, $destinationTableName);
 
-            $destinationTable->create($sourceTable->getCreate());
+            $destinationTable->create($sourceTable->getCreate(), $overwriteExistingTables);
 
             $deltasTable = new DeltasTable($sourceTable, new TableName($sourceTableName->schema, '_deltas_table_' . $sourceTableName->name));
 

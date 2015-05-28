@@ -18,9 +18,11 @@ class Table implements TableInterface
         return $this->table;
     }
 
-    public function create($createStatement)
+    public function create($createStatement, $ifNotExists = false)
     {
-        $this->connection->createTable($this->table->getQualifiedName(), $createStatement);
+        $ifNotExists ?
+            $this->connection->createTableIfNotExists($this->table->getQualifiedName(), $createStatement) :
+            $this->connection->createTable($this->table->getQualifiedName(), $createStatement);
     }
 
     public function getCreate()
