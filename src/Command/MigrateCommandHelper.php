@@ -93,11 +93,13 @@ class MigrateCommandHelper
 
         $migrate->setLogger($this->logger ?: new ConsoleLogger($this->output));
 
-        $this->printTablesList($tablesList);
+        $this->printTablesList($tablesList, $cleanup ? 'Cleaning up: ' : 'Migrating: ');
 
         if($this->isInteractive)
         {
-            if(!$this->questioner->confirm("Are you sure you wish to continue with the migration? "))
+            $message = $cleanup ? 'cleanup' : 'migration';
+
+            if(!$this->questioner->confirm("Are you sure you wish to continue with the $message? "))
             {
                 $this->output->writeln("<error>Exiting</error>");
 
@@ -125,9 +127,9 @@ class MigrateCommandHelper
         return 0;
     }
 
-    private function printTablesList(array $tables)
+    private function printTablesList(array $tables, $message)
     {
-        $this->output->writeln("Migrating:");
+        $this->output->writeln("$message");
 
         foreach($tables as $table)
         {
