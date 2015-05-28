@@ -45,6 +45,8 @@ class MigrateCommandHelper
      */
     private $eventDispatcher;
 
+    private $overwriteExisting = false;
+
     public function __construct(DbConnection $sourceConnection, DbConnection $destConnection, OutputInterface $output, Questioner $questioner)
     {
         $this->output = $output;
@@ -69,6 +71,11 @@ class MigrateCommandHelper
     public function disableInteraction()
     {
         $this->isInteractive = false;
+    }
+
+    public function overwriteExistingTables()
+    {
+        $this->overwriteExisting = true;
     }
 
     public function execute(\SplFileInfo $file, array $tablesList, $cleanup = false)
@@ -110,7 +117,7 @@ class MigrateCommandHelper
         {
             $this->output->writeln("<comment>Running migration</comment>");
 
-            $migrate->migrate($tablesList, $file);
+            $migrate->migrate($tablesList, $file, $this->overwriteExisting);
 
             $this->output->writeln("<info>Migration complete</info>");
         }
