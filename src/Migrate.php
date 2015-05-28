@@ -77,9 +77,30 @@ class Migrate
     /**
      * @param array $tables
      * @param \SplFileInfo $tmpFile
+     * @param bool $overwriteExistingTables
      * @throws \Exception
      */
     public function migrate(array $tables, \SplFileInfo $tmpFile, $overwriteExistingTables = false)
+    {
+        try
+        {
+            $this->doMigration($tables, $tmpFile, $overwriteExistingTables);
+
+        }catch (\Exception $e)
+        {
+            $this->unlockTables();
+
+            throw $e;
+        }
+    }
+
+    /**
+     * @param array $tables
+     * @param \SplFileInfo $tmpFile
+     * @param $overwriteExistingTables
+     * @throws \Exception
+     */
+    public function doMigration(array $tables, \SplFileInfo $tmpFile, $overwriteExistingTables)
     {
         $transferSets = array();
 
