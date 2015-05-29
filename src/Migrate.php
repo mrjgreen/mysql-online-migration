@@ -313,6 +313,8 @@ class Migrate
      */
     private function transferData(\SplFileInfo $file, Table $source, Table $destination)
     {
+        $this->log("Writing data from [ ".$source->getName()." ] to [ $file ]");
+
         $countOut = $this->dbSource->selectIntoOutfile($source->getName(), $file)->rowCount();
 
         $this->log("Output row count [$countOut]");
