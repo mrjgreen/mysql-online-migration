@@ -313,19 +313,23 @@ class Migrate
      */
     private function transferData(\SplFileInfo $file, Table $source, Table $destination)
     {
-        $this->log("Writing data from [ ".$source->getName()." ] to [ $file ]");
+        $rowCount = $this->dbSource->count($source->getName());
+
+        $this->log("Writing $rowCount rows from " . $source->getName() . " to $file");
 
         $countOut = $this->dbSource->selectIntoOutfile($source->getName(), $file)->rowCount();
 
-        $this->log("Output row count [$countOut]");
+        $this->log("Output row count $countOut", LogLevel::INFO);
+
+        $this->log("Loading data from $file into " . $destination->getName());
 
         $countIn = $this->dbDestination->loadDataInfile($destination->getName(), $file);
 
-        $this->log("Input row count [$countIn]");
+        $this->log("Input row count $countIn", LogLevel::INFO);
 
         if($countOut !== $countIn)
         {
-            $this->log("Output row count [$countOut] is not equal to input count [$countIn]", LogLevel::WARNING);
+            $this->log("Output row count $countOut is not equal to input count $countIn", LogLevel::WARNING);
         }
     }
 
