@@ -2,5 +2,5 @@
 
 interface CopierInterface
 {
-
+    public function copy(\SplFileInfo $file);
 }
