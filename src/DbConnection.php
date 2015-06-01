@@ -4,9 +4,13 @@ class DbConnection
 {
     protected $pdo;
 
-    public function __construct(\PDO $pdo)
+    protected $infileLoader;
+
+    public function __construct(\PDO $pdo, $infileLoader = null)
     {
         $this->pdo = $pdo;
+
+        $this->infileLoader = $infileLoader;
     }
 
     public function exec($sql)
@@ -50,6 +54,11 @@ class DbConnection
     }
 
     public function loadDataInfile($table, \SplFileInfo $file, $type = '')
+    {
+        return $this->exec("LOAD DATA INFILE '$file' $type INTO TABLE $table CHARACTER SET binary");
+    }
+
+    public function loadDataLocalInfile($table, \SplFileInfo $file, $type = '')
     {
         return $this->exec("LOAD DATA LOCAL INFILE '$file' $type INTO TABLE $table CHARACTER SET binary");
     }

@@ -1,5 +1,6 @@
 <?php namespace MysqlMigrate;
 
+use MysqlMigrate\InfileLoader\LocalInfileLoader;
 use MysqlMigrate\TableDelta\Collection\Trigger\DeleteTrigger;
 use MysqlMigrate\TableDelta\Collection\Trigger\InsertTrigger;
 use MysqlMigrate\TableDelta\Collection\Trigger\UpdateTrigger;
@@ -28,7 +29,7 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase
 
         $connSource = new DbConnection($this->sourceDb);
         $connDest = new DbConnection($this->destDb);
-        $migrate = new Migrate($connSource, $connDest, $eventDispatcher);
+        $migrate = new Migrate($connSource, $connDest, new LocalInfileLoader($connSource), $eventDispatcher);
 
         $sourceTable = new TableName('mysql_migrate_int_test', 'customers');
         $destTable = new TableName('mysql_migrate_int_test', 'customers_new');

@@ -1,5 +1,6 @@
 <?php namespace MysqlMigrate;
 
+use MysqlMigrate\InfileLoader\InfileLoaderInterface;
 use MysqlMigrate\TableDelta\Collection\Trigger\DeleteTrigger;
 use MysqlMigrate\TableDelta\Collection\Trigger\InsertTrigger;
 use MysqlMigrate\TableDelta\Collection\Trigger\UpdateTrigger;
@@ -35,8 +36,14 @@ class Migrate
 {
     use LoggerAwareTrait;
 
+    /**
+     * @var DbConnection
+     */
     private $dbDestination;
 
+    /**
+     * @var DbConnection
+     */
     private $dbSource;
 
     /**
@@ -45,15 +52,23 @@ class Migrate
     private $eventDispatcher;
 
     /**
+     * @var InfileLoaderInterface
+     */
+    private $infileLoader;
+
+    /**
      * @param DbConnection $dbSource
      * @param DbConnection $dbDestination
+     * @param InfileLoaderInterface $infileLoader
      * @param EventDispatcher $eventDispatcher
      */
-    public function __construct(DbConnection $dbSource, DbConnection $dbDestination, EventDispatcher $eventDispatcher = null)
+    public function __construct(DbConnection $dbSource, DbConnection $dbDestination, InfileLoaderInterface $infileLoader, EventDispatcher $eventDispatcher = null)
     {
         $this->dbSource = $dbSource;
 
         $this->dbDestination = $dbDestination;
+
+        $this->infileLoader = $infileLoader;
 
         $this->eventDispatcher = $eventDispatcher;
     }
@@ -323,7 +338,7 @@ class Migrate
 
         $this->log("Loading data from $file into " . $destination->getName());
 
-        $countIn = $this->dbDestination->loadDataInfile($destination->getName(), $file);
+        $countIn = $this->infileLoader->load($destination->getName(), $file);
 
         $this->log("Input row count $countIn", LogLevel::INFO);
 
