@@ -1,6 +1,7 @@
 <?php namespace MysqlMigrate\Command;
 use MysqlMigrate\DbConnection;
 use MysqlMigrate\InfileLoader\InfileLoader;
+use MysqlMigrate\InfileLoader\InfileLoaderInterface;
 use MysqlMigrate\InfileLoader\LocalInfileLoader;
 use MysqlMigrate\Migrate;
 use Psr\Log\LoggerInterface;
@@ -49,6 +50,8 @@ class MigrateCommandHelper
 
     private $overwriteExisting = false;
 
+    private $infileLoader;
+
     public function __construct(DbConnection $sourceConnection, DbConnection $destConnection, OutputInterface $output, Questioner $questioner)
     {
         $this->output = $output;
@@ -68,6 +71,11 @@ class MigrateCommandHelper
     public function setEventDispatcher(EventDispatcher $eventDispatcher)
     {
         $this->eventDispatcher = $eventDispatcher;
+    }
+
+    public function setInfileLoader(InfileLoaderInterface $infileLoader)
+    {
+        $this->infileLoader = $infileLoader;
     }
 
     public function disableInteraction()
@@ -91,7 +99,7 @@ class MigrateCommandHelper
 
         $this->output->writeln("<comment>Using file: $file</comment>");
 
-        $migrate = new Migrate($this->sourceConnection, $this->destConnection, new LocalInfileLoader($this->sourceConnection), $this->eventDispatcher ?: new EventDispatcher());
+        $migrate = new Migrate($this->sourceConnection, $this->destConnection, $this->infileLoader ?: new LocalInfileLoader($this->sourceConnection), $this->eventDispatcher ?: new EventDispatcher());
 
         $migrate->setLogger($this->logger ?: new ConsoleLogger($this->output));
 
