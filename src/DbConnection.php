@@ -108,7 +108,7 @@ class DbConnection
     {
         try
         {
-            $this->exec("SELECT 1 FROM $table LIMIT 0");
+            $this->query("SELECT 1 FROM $table LIMIT 0")->fetchAll();
 
             return true;
         }
