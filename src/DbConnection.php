@@ -104,6 +104,25 @@ class DbConnection
         }));
     }
 
+    public function exists($table)
+    {
+        try
+        {
+            $this->exec("SELECT 1 FROM $table LIMIT 0");
+
+            return true;
+        }
+        catch(\PDOException $e)
+        {
+            if(strpos($e->getMessage(),"doesn't exist") !== false)
+            {
+                return false;
+            }
+
+            throw $e;
+        }
+    }
+
     public function rename($table, $tableNew)
     {
         $this->exec("RENAME TABLE $table TO $tableNew");

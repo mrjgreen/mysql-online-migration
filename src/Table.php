@@ -36,6 +36,16 @@ class Table implements TableInterface
         return str_replace($replace, '', $create, $count);
     }
 
+    public function exists()
+    {
+        return $this->connection->exists($this->getName());;
+    }
+
+    public function drop()
+    {
+        $this->connection->drop($this->getName());
+    }
+
     public function getColumns()
     {
         return $this->connection->listColumns($this->getName());

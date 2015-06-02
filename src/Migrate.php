@@ -127,7 +127,19 @@ class Migrate
 
             $destinationTable = new Table($this->dbDestination, $destinationTableName);
 
-            $destinationTable->create($sourceTable->getCreate(), $overwriteExistingTables);
+            if($destinationTable->exists())
+            {
+                if(!$overwriteExistingTables)
+                {
+                    throw new \Exception("Destination table exists: " . $destinationTable->exists());
+                }
+                else
+                {
+                    $destinationTable->drop();
+                }
+            }
+
+            $destinationTable->create($sourceTable->getCreate());
 
             $deltasTable = new DeltasTable($sourceTable, new TableName($sourceTableName->schema, '_deltas_table_' . $sourceTableName->name));
 
