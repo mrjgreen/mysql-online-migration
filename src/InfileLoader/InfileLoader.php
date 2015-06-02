@@ -20,6 +20,6 @@ class InfileLoader implements InfileLoaderInterface
     {
         $this->scpCopier->copy($file);
 
-        $this->dbDest->loadDataInfile($table, $file);
+        return $this->dbDest->loadDataInfile($table, $file);
     }
 }

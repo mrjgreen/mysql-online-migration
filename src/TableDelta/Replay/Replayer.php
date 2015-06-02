@@ -51,9 +51,14 @@ class Replayer
         $deltas = $this->deltasTable->getName();
         $main = $this->sourceTable->getName();
 
-        $this->dbSource->selectIntoOutfile("$main JOIN $deltas USING($primaryKey)", $file, array($main . '.*'));
+        $count = $this->dbSource->selectIntoOutfile("$main JOIN $deltas USING($primaryKey)", $file, array($main . '.*'))->rowCount();
 
-        $this->dbDestination->loadDataInfile($this->destTable->getName(), $file, 'REPLACE');
+        if($count)
+        {
+            $this->dbDestination->loadDataInfile($this->destTable->getName(), $file, 'REPLACE');
+        }
+
+        return $count;
     }
 
     /**

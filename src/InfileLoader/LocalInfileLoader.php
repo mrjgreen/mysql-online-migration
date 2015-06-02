@@ -13,6 +13,6 @@ class LocalInfileLoader implements InfileLoaderInterface
 
     public function load($table, \SplFileInfo $file)
     {
-        $this->dbSource->loadDataLocalInfile($table, $file);
+        return $this->dbSource->loadDataLocalInfile($table, $file);
     }
 }
