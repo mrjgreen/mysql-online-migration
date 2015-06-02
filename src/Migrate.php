@@ -131,7 +131,7 @@ class Migrate
             {
                 if(!$overwriteExistingTables)
                 {
-                    throw new \Exception("Destination table exists: " . $destinationTable->exists());
+                    throw new \Exception("Destination table exists: $destinationTableName");
                 }
                 else
                 {
