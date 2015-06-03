@@ -55,7 +55,7 @@ class Replayer
 
         if($count)
         {
-            $this->dbDestination->loadDataInfile($this->destTable->getName(), $file, 'REPLACE');
+            $this->dbDestination->loadDataLocalInfile($this->destTable->getName(), $file, 'REPLACE');
         }
 
         return $count;
